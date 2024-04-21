@@ -1,20 +1,22 @@
+# Define compiler
+CC = gcc
+# Define compiler flags, -I for include directories
+CFLAGS = -Iinclude
+
 all: cpmRun
 
 cpmRun: diskSimulator.o  cpmfsys.o fsysdriver.o
-	gcc -o cpmRun diskSimulator.o cpmfsys.o fsysdriver.o 
+	$(CC) -o cpmRun diskSimulator.o cpmfsys.o fsysdriver.o
 
 diskSimulator.o: diskSimulator.c diskSimulator.h
-	gcc -c diskSimulator.c
+	$(CC) -c diskSimulator.c
 
 cpmfsys.o: cpmfsys.h cpmfsys.c 
-	gcc -c cpmfsys.c  
+	$(CC) -c cpmfsys.c
 
 fsysdriver.o: fsysdriver.c
-	gcc -c fsysdriver.c 
-
-all: 
-	cpmRun
+	$(CC) -c fsysdriver.c
 
 clean: 
-	rm *.o 
+	rm *.o cpmRun
 

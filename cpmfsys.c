@@ -53,14 +53,28 @@ DirStructType *mkDirStruct(int index, uint8_t *super_block_entry) {
     // 2) copy the file name
     strncpy(dir->name, (char *) (dir_addr + 1), 8);
     dir->name[8] = '\0';
+    // Trim trailing spaces
+    for (int i = 7; i >= 0 && dir->name[i] == ' '; i--) {
+        dir->name[i] = '\0';
+    }
 
-    // 3) Obtain XL, BC, XH, RC values
+
+    // 3) Copy the file extension (bytes 9-11) and ensure null termination
+    strncpy(dir->extension, (char *) (dir_addr + 9), 3);
+    dir->extension[3] = '\0';
+
+    // Trim trailing spaces
+    for (int i = 2; i >= 0 && dir->extension[i] == ' '; i--) {
+        dir->extension[i] = '\0';
+    }
+
+    // 4) Obtain XL, BC, XH, RC values
     dir->XL = dir_addr[12];
     dir->BC = dir_addr[13];
     dir->XH = dir_addr[14];
     dir->RC = dir_addr[15];
 
-    // 4) copy 16 bytes of block indices
+    // 5) copy 16 bytes of block indices
     memcpy(dir->blocks, dir_addr + 16, 16);
 
     return dir;
@@ -91,13 +105,45 @@ void makeFreeList() {
     }
 }
 
-bool checkLegalName(char *str) {
-    while (*str) {
-        if (!isalnum((unsigned char) *str) && *str != ' ') // Allow alphanumeric and spaces (adjust as needed)
+bool checkValidCharacter(char ch) {
+    return isalnum((unsigned char)ch) || ch == '_' || ch == ' ' || ch == '\0';
+}
+
+// Helper function to validate a substring for valid filename or extension characters
+bool checkPart(const char *start, const char *end) {
+    for (const char *ptr = start; ptr < end; ptr++) {
+        if (!checkValidCharacter(*ptr)) {
             return false;
-        str++;
+        }
     }
     return true;
+}
+
+
+bool checkLegalName(char *str) {
+    if (str == NULL) {
+        return false;
+    }
+    char *dot = strchr(str, '.');
+    if (dot == NULL) {
+        // No dot found, check the whole string as a filename
+        return checkPart(str, str + strlen(str));
+    } else {
+        // Dot found, check the file name and extension separately
+        const char *name_part = str;
+        const char *ext_part = dot + 1;
+
+        // Check the name part up to the dot (not including the dot)
+        if (!checkPart(name_part, dot)) {
+            return false;
+        }
+
+        // Check the extension part after the dot
+        if (!checkPart(ext_part, ext_part + strlen(ext_part))) {
+            return false;
+        }
+        return true;
+    }
 }
 
 int findExtentWithName(char *name, uint8_t *block_zero) {
@@ -218,13 +264,15 @@ int cpmDelete(char *name) {
     }
     // write it back to disk
     writeDirStruct(dir, extentNumber, block_zero);
+    blockWrite(block_zero, 0);
     free(dir);
     printf("File successfully deleted %s\n", name);
+
     return 0;
 }
 
 int cpmRename(char *oldName, char *newName) {
-    if (!oldName || newName) {
+    if (!oldName || !newName) {
         printf("Invalid file name\n");
         return -1;
     }
@@ -263,7 +311,7 @@ int cpmRename(char *oldName, char *newName) {
 
     // write it back to disk
     writeDirStruct(dir, extentNumber, block_zero);
-
+    blockWrite(block_zero, 0);
     free(dir);
     printf("File renamed successfully from %s to %s\n", oldName, newName);
     return 0;
